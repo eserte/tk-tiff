@@ -30,5 +30,8 @@ Previous versions worked with other Linux and FreeBSD configurations.
 I expect that there are no more endian problems, so this module will
 also work on Sun Sparcs and other machines.
 
+For AIX, I got reports that you have to manually add -lm and -lgcc to
+the @libs variable in Makefile.PL.
+
 Slaven Rezic <eserte@cs.tu-berlin.de>
 
