@@ -8,7 +8,8 @@ version.
 
 Installation:
 
-You need libtiff (ftp://ftp.sgi.com/graphics/tiff/) and probably libjpeg
+You need libtiff (http://www.libtiff.org/ or
+ftp://ftp.sgi.com/graphics/tiff/) and probably libjpeg
 (ftp://ftp.uu.net/graphics/jpeg/) installed on your system.
 
 Check Makefile.pl for appropriate library and include paths and
@@ -21,6 +22,7 @@ library names. Then build the extension by typing:
 
 The module is only tested with the following configurations:
 
+* FreeBSD-3.3, perl 5.005_03, Tk 800.015, tiff 3.5.1, jpeg 6b
 * FreeBSD-2.2.8, perl 5.005_02, Tk 800.014, tiff 3.4, jpeg 6b
 * Linux 2.0.34 (RedHat 5.1), perl 5.005_03, Tk 800.014, tiff 3.4, jpeg 6b
 
