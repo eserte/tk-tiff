@@ -1,0 +1,21 @@
+README
+------
+
+This is an extension for Tk40*.* (and maybe Tk800.*) which supplies
+TIFF format loader for Photo image type. The TIFF code is stolen from
+.../pTk/mTk/additions/imgTIFF.c from the perl/Tk distribution.
+
+Installation:
+
+You need an libtiff and libjpeg installed on your system.
+
+Check Makefile.pl for appropriate library and include paths and
+library names. Then build the extension by typing:
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+
+Slaven Rezic <eserte@cs.tu-berlin.de>
+
