@@ -65,8 +65,6 @@ Tk::MMutil::TkExtMakefile
    'INC'           =>   join(" ", @inc),
    'OBJECT'        => '$(O_FILES) ' . $photo_so,
    'VERSION_FROM'  => 'TIFF.pm',
-   'dist'          => { 'COMPRESS'=>'gzip -9f', 'SUFFIX' => '.gz',
-                        'POSTOP'=>'-$(CHMOD) 644 $(DISTVNAME).tar$(SUFFIX)' },
    'PREREQ_PM'     => {'Tk' => 800.014 },
    'AUTHOR'        => $author,
   );
