@@ -70,3 +70,30 @@ Tk::MMutil::TkExtMakefile
    'PREREQ_PM'     => {'Tk' => 800.014 },
    'AUTHOR'        => $author,
   );
+
+sub MY::postamble {
+    my $postamble = "";
+
+    if (defined $ENV{USER} && $ENV{USER} eq 'eserte') {
+	$postamble .= <<'EOF';
+release :: $(DISTVNAME).tar$(SUFFIX)
+	cpan-upload $(DISTVNAME).tar$(SUFFIX)
+
+CVS_DIR=${HOME}/work/Tk-TIFF
+
+copy-to-cvs:
+	@echo "Really copy to ${CVS_DIR}? (Hit Ctrl-C otherwise) "
+	@read dummy
+	perl "-MExtUtils::Manifest=manicopy,maniread" -e "manicopy(maniread('MANIFEST'),'${CVS_DIR}', 'cp');"
+
+cvs-add-missing:
+	cd ${CVS_DIR} && cvsu | grep '^[\?D]' | cut -c2- | xargs cvs add -ko
+
+cvs-standard-commit:
+	cd ${CVS_DIR} && cvs -z9 commit -m ""
+
+EOF
+    }
+
+    $postamble;
+}
