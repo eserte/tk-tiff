@@ -15,13 +15,17 @@ my $need_photo_so = 0;
 #
 ######################################################################
 
+my $Author = 'Slaven Rezic (eserte@cs.tu-berlin.de)';
+
 # check endianess...
 my $adddef = "";
-if ($Config{"byteorder"} eq '4321') {
+if ($Config{"byteorder"} eq '4321' ||
+    $Config{"byteorder"} eq '87654321') {
     $adddef = "-DWORDS_BIGENDIAN";
-} elsif ($Config{"byteorder"} ne '1234') {
+} elsif ($Config{"byteorder"} ne '1234' &&
+	 $Config{"byteorder"} ne '12345678') {
     warn "Unknown byte order $Config{byteorder}. ".
-	 "Please report to the author!\n";
+	 "Please report to $Author!\n";
 }
 
 my @libs;
@@ -58,5 +62,5 @@ Tk::MMutil::TkExtMakefile
    'dist'          => { 'COMPRESS'=>'gzip -9f', 'SUFFIX' => '.gz',
                         'POSTOP'=>'-$(CHMOD) 644 $(DISTVNAME).tar$(SUFFIX)' },
    'PREREQ_PM'     => {'Tk' => 800.014 },
-   'AUTHOR'        => 'Slaven Rezic (eserte@cs.tu-berlin.de)',
+   'AUTHOR'        => $author,
   );
