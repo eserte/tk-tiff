@@ -10,6 +10,7 @@
 
 /* Author : Jan Nijtmans */
 /* Date   : 7/16/97      */
+/* Changed for perl/Tk by Slaven Rezic */
 
 #include <stdio.h>
 #include <string.h>
@@ -21,7 +22,9 @@
 #include <varargs.h>
 #endif
 
+#include "pTk/tk.h"
 #include "pTk/imgInt.h"
+#include "pTk/tkVMacro.h"
 
 #ifdef __WIN32__
 #define WIN32_LEAN_AND_MEAN
@@ -51,11 +54,14 @@
  * Prototypes for local procedures defined in this file:
  */
 
-static int ChnMatchTIFF _ANSI_ARGS_((Tcl_Channel chan, char *fileName,
+static int ChnMatchTIFF _ANSI_ARGS_((Tcl_Interp *interp,
+	Tcl_Channel chan, Arg fileName,
 	Arg formatString, int *widthPtr, int *heightPtr));
-static int FileMatchTIFF _ANSI_ARGS_((FILE *f, char *fileName,
+static int FileMatchTIFF _ANSI_ARGS_((Tcl_Interp *interp,
+	FILE *f, Arg fileName,
 	Arg formatString, int *widthPtr, int *heightPtr));
-static int ObjMatchTIFF _ANSI_ARGS_((struct Tcl_Obj *dataObj,
+static int ObjMatchTIFF _ANSI_ARGS_((Tcl_Interp *interp,
+	struct Tcl_Obj *dataObj,
 	Arg formatString, int *widthPtr, int *heightPtr));
 static int ChnReadTIFF _ANSI_ARGS_((Tcl_Interp *interp, Tcl_Channel chan,
 	char *fileName, Arg formatString, Tk_PhotoHandle imageHandle,
@@ -75,23 +81,25 @@ static int StringWriteTIFF _ANSI_ARGS_((Tcl_Interp *interp,
 
 Tk_PhotoImageFormat imgFmtTIFF = {
     "TIFF",					/* name */
-    (Tk_ImageFileMatchProc *) ChnMatchTIFF,	/* fileMatchProc */
-    (Tk_ImageStringMatchProc *) ObjMatchTIFF,	/* stringMatchProc */
+    ChnMatchTIFF,	/* fileMatchProc */
+    ObjMatchTIFF,	/* stringMatchProc */
     (Tk_ImageFileReadProc *) ChnReadTIFF,	/* fileReadProc */
     (Tk_ImageStringReadProc *) ObjReadTIFF,	/* stringReadProc */
     (Tk_ImageFileWriteProc *) FileWriteTIFF,	/* fileWriteProc */
     (Tk_ImageStringWriteProc *) StringWriteTIFF,/* stringWriteProc */
 };
 
+#if 0
 Tk_PhotoImageFormat imgOldFmtTIFF = {
     "TIFF",					/* name */
-    (Tk_ImageFileMatchProc *) FileMatchTIFF,	/* fileMatchProc */
-    (Tk_ImageStringMatchProc *) ObjMatchTIFF,	/* stringMatchProc */
+    FileMatchTIFF,	/* fileMatchProc */
+    ObjMatchTIFF,	/* stringMatchProc */
     (Tk_ImageFileReadProc *) FileReadTIFF,	/* fileReadProc */
     (Tk_ImageStringReadProc *) ObjReadTIFF,	/* stringReadProc */
     (Tk_ImageFileWriteProc *) FileWriteTIFF,	/* fileWriteProc */
     (Tk_ImageStringWriteProc *) StringWriteTIFF,/* stringWriteProc */
 };
+#endif
 
 /*
  * We use Tk_ParseArgv to parse any options supplied in the format string.
@@ -238,7 +246,7 @@ ImgTIFFmemcpy(a,b,c)
      tdata_t b;
      tsize_t c;
 {
-    return _TIFFmemcpy(a,b,c);
+     _TIFFmemcpy(a,b,c);
 }
 
 void
@@ -598,7 +606,8 @@ sizeString(fd)
  */
 
 static int
-ObjMatchTIFF(dataObj, formatString, widthPtr, heightPtr)
+ObjMatchTIFF(interp, dataObj, formatString, widthPtr, heightPtr)
+    Tcl_Interp *interp;
     struct Tcl_Obj *dataObj;	/* the object containing the image data */
     Arg formatString;		/* the image format string */
     int *widthPtr;		/* where to put the string width */
@@ -614,9 +623,10 @@ ObjMatchTIFF(dataObj, formatString, widthPtr, heightPtr)
     return CommonMatchTIFF(&handle, widthPtr, heightPtr);
 }
 
-static int ChnMatchTIFF(chan, fileName, formatString, widthPtr, heightPtr)
+static int ChnMatchTIFF(interp, chan, fileName, formatString, widthPtr, heightPtr)
+    Tcl_Interp *interp;
     Tcl_Channel chan;
-    char *fileName;
+    Arg fileName;
     Arg formatString;
     int *widthPtr, *heightPtr;
 {
@@ -628,9 +638,10 @@ static int ChnMatchTIFF(chan, fileName, formatString, widthPtr, heightPtr)
     return CommonMatchTIFF(&handle, widthPtr, heightPtr);
 }
 
-static int FileMatchTIFF(f, fileName, formatString, widthPtr, heightPtr)
+static int FileMatchTIFF(interp, f, fileName, formatString, widthPtr, heightPtr)
+    Tcl_Interp *interp;
     FILE *f;
-    char *fileName;
+    Arg fileName;
     Arg formatString;
     int *widthPtr, *heightPtr;
 {
@@ -710,7 +721,7 @@ static int ObjReadTIFF(interp, dataObj, formatString, imageHandle,
 	return TCL_ERROR;
     }
 
-    if (TIFFClientOpen) {
+    if ((long)TIFFClientOpen) {
 	tempFileName[0] = 0;
 	if (handle.state != IMG_STRING) {
 	    data = ckalloc((handle.length*3)/4);
@@ -775,7 +786,7 @@ static int ChnReadTIFF(interp, chan, fileName, formatString, imageHandle,
     char buffer[1024];
     FILE *outfile;
 
-    if (TIFFClientOpen) {
+    if ((long)TIFFClientOpen) {
 	tempFileName[0] = 0;
 	tif = TIFFClientOpen(fileName, "rb", (thandle_t) chan,
 		readChan, writeDummy, seekChan, closeDummy,
@@ -830,7 +841,7 @@ static int FileReadTIFF(interp, f, fileName, formatString, imageHandle,
     char buffer[1024];
     FILE *outfile;
 
-    if (TIFFClientOpen) {
+    if ((long)TIFFClientOpen) {
 	tempFileName[0] = 0;
 	tif = TIFFClientOpen(fileName, "rb", (thandle_t) f,
 		readFile, writeDummy, seekFile, closeDummy,
@@ -952,7 +963,7 @@ static int StringWriteTIFF(interp, dataPtr, formatString, blockPtr)
     char tempFileName[256];
     Tcl_DString dstring;
 
-    if (TIFFClientOpen) {
+    if ((long)TIFFClientOpen) {
 	tempFileName[0] = 0;
 	Tcl_DStringInit(&dstring);
 	ImgWriteInit(&dstring, &handle);
@@ -1049,7 +1060,7 @@ static int CommonWriteTIFF(interp, tif, formatString, blockPtr)
       LangFreeProc *freeProc = NULL;
       if (Lang_SplitList(interp, formatString, &argc, &args, &freeProc) != TCL_OK)
 	return TCL_ERROR;
-      compression = "none";
+#if 0
       if (Tk_ParseArgv(interp, (Tk_Window) NULL, &argc, args,
 	      writeOptTable, TK_ARGV_NO_LEFTOVERS|TK_ARGV_NO_DEFAULTS)
 	      != TCL_OK) {
@@ -1057,7 +1068,16 @@ static int CommonWriteTIFF(interp, tif, formatString, blockPtr)
 	  (*freeProc)(argc,args);
 	return TCL_ERROR;
       }
+#endif
+      length = strlen(LangString(args[1]));
+      if ((argc == 3) &&
+	  (!strncmp(LangString(args[1]),"-compression",length)))
+	compression = LangString(args[2]);
+      else
+	compression = "none";
+
       c = compression[0]; length = strlen(compression);
+
       if ((c == 'n') && (!strncmp(compression,"none",length))) {
 	comp = COMPRESSION_NONE;
       } else if ((c == 'l') && (!strncmp(compression,"lzw",length))) {
