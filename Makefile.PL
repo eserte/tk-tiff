@@ -11,6 +11,7 @@ Tk::MMutil::TkExtMakefile
    'VERSION_FROM'  => 'TIFF.pm',
    'dist'      => {'COMPRESS'=>'gzip -9f', 'SUFFIX' => '.gz',
                    'POSTOP'=>'-$(CHMOD) 644 $(DISTVNAME).tar$(SUFFIX)'},
+   'PREREQ_PM'     => {'Tk' => 800.005 },
    );
 
 
