@@ -7,7 +7,8 @@ TIFF format loader for Photo image type. The TIFF code is stolen from
 
 Installation:
 
-You need an libtiff and libjpeg installed on your system.
+You need libtiff (ftp://ftp.sgi.com/graphics/tiff/) and probably libjpeg
+(ftp://ftp.uu.net/graphics/jpeg/) installed on your system.
 
 Check Makefile.pl for appropriate library and include paths and
 library names. Then build the extension by typing:
@@ -16,6 +17,13 @@ library names. Then build the extension by typing:
 	make
 	make test
 	make install
+
+The module is only tested on FreeBSD-2.2.1 with the following
+configuration:
+* perl 5.004_04
+* Tk 402.004
+* tiff 3.4
+* jpeg 6a
 
 Slaven Rezic <eserte@cs.tu-berlin.de>
 
