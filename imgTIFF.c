@@ -362,12 +362,12 @@ static int closeDummy _ANSI_ARGS_((thandle_t));
 static tsize_t writeDummy _ANSI_ARGS_((thandle_t, tdata_t, tsize_t));
 
 static tsize_t readMFile _ANSI_ARGS_((thandle_t, tdata_t, tsize_t));
-static tsize_t seekMFile _ANSI_ARGS_((thandle_t, toff_t, int));
+static toff_t seekMFile _ANSI_ARGS_((thandle_t, toff_t, int));
 static toff_t  sizeMFile _ANSI_ARGS_((thandle_t));
 
 static tsize_t readString _ANSI_ARGS_((thandle_t, tdata_t, tsize_t));
 static tsize_t writeString _ANSI_ARGS_((thandle_t, tdata_t, tsize_t));
-static tsize_t seekString _ANSI_ARGS_((thandle_t, toff_t, int));
+static toff_t seekString _ANSI_ARGS_((thandle_t, toff_t, int));
 static toff_t  sizeString _ANSI_ARGS_((thandle_t));
 
 static char *errorMessage = NULL;
@@ -504,7 +504,7 @@ readMFile(fd, data, size)
     return (tsize_t) ImgRead((MFile *) fd, (char *) data, (int) size) ;
 }
 
-static tsize_t
+static toff_t
 seekMFile(fd, off, whence)
     thandle_t fd;
     toff_t off;
@@ -577,7 +577,7 @@ writeString(fd, data, size)
     return size;
 }
 
-static tsize_t
+static toff_t
 seekString(fd, off, whence)
     thandle_t fd;
     toff_t off;
