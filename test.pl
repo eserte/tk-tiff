@@ -2,7 +2,7 @@
 # -*- perl -*-
 
 #
-# $Id: test.pl,v 1.4 2002/04/10 22:14:01 eserte Exp $
+# $Id: test.pl,v 1.5 2003/10/22 19:00:33 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1998 Slaven Rezic. All rights reserved.
@@ -18,7 +18,7 @@ BEGIN { $last = 12; print "1..$last\n" }
 use Tk;
 use Tk::TIFF;
 use File::Compare;
-
+warn;sleep 1;#XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 $ok = 1;
 print "ok " . $ok++ . "\n";
 $tmp = "/tmp";
@@ -26,7 +26,7 @@ $tmp = "/tmp";
 $top = new MainWindow;
 
 # string read first
-if (eval { require MIME::Base64 }) {
+if (eval { require MIME::Base64; }) {
     foreach (qw(test-none.tif test-2channel.tif test-lzw.tif test-packbits.tif)) {
 	open(F, $_) or die "Can't open $_: $!";
 	binmode F;
@@ -34,7 +34,8 @@ if (eval { require MIME::Base64 }) {
 	my $buf = <F>;
 	close F;
 	my $p;
-	eval { $p = $top->Photo(-data => MIME::Base64::encode_base64($buf)) };
+	eval { $p = $top->Photo(#-format => 'tiff',#XXXXXXXXXXXXXXXXXXXXXdel
+				-data => MIME::Base64::encode_base64($buf)) };
 	if ($p && !$@) {
 	    print "ok " . $ok++ . "\n";
 	} else {

@@ -23,9 +23,8 @@ typing:
 
 The module is only tested with the following configurations:
 
-* FreeBSD-4.4, perl 5.005_03, Tk 800.023, tiff 3.5.4, jpeg 6b
-* FreeBSD-4.4, perl 5.7.2, Tk 800.023, tiff 3.5.4, jpeg 6b
 * Linux 2.4.20, perl 5.8.0, Tk 800.025, tiff 3.5.7, jpeg ?
+* Linux 2.4.20, perl 5.8.1, Tk 804.025, tiff 3.5.7, jpeg ?
 
 Previous versions worked with other Linux and FreeBSD configurations.
 I expect that there are no more endian problems, so this module will
