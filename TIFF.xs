@@ -21,8 +21,6 @@
 extern Tk_PhotoImageFormat      imgFmtTIFF;
 
 DECLARE_VTABLES;
-TkimgphotoVtab *TkimgphotoVptr;
-ImgintVtab *ImgintVptr;
 
 MODULE = Tk::TIFF	PACKAGE = Tk::TIFF
 
@@ -31,7 +29,7 @@ PROTOTYPES: DISABLE
 BOOT:
  {
   IMPORT_VTABLES;
-  TkimgphotoVptr = (TkimgphotoVtab *) SvIV(FindTkVarName("TkimgphotoVtab",5));
-  ImgintVptr = (ImgintVtab*) SvIV(FindTkVarName("ImgintVtab",5));
+  install_vtab("TkimgphotoVtab",TkimgphotoVGet(),sizeof(TkimgphotoVtab));
+  install_vtab("ImgintVtab",ImgintVGet(),sizeof(ImgintVtab));
   Tk_CreatePhotoImageFormat(&imgFmtTIFF);
  }
