@@ -19,12 +19,11 @@ library names. Then build the extension by typing:
 	make test
 	make install
 
-The module is only tested on FreeBSD-2.2.1 with the following
-configuration:
-* perl 5.004_04
-* Tk 800.005
-* tiff 3.4
-* jpeg 6a
+The module is only tested with the following configurations:
+
+* FreeBSD-2.2.7, perl 5.005_02, Tk 800.012, tiff 3.4, jpeg 6a
+* FreeBSD-2.2.1, perl 5.004_04, Tk 800.005, tiff 3.4, jpeg 6a
+* Linux 2.0.36 (RedHat 5.2), perl 5.005_54, Tk 800.012, tiff 3.4, jpeg 6b
 
 Slaven Rezic <eserte@cs.tu-berlin.de>
 
