@@ -8,11 +8,13 @@
 #include <perl.h>
 #include <XSUB.h>
 
+#include <tkGlue.def>
+
 #include "pTk/tkPort.h"
 #include "pTk/tkInt.h"
-#include "pTk/tkVMacro.h"
 #include "pTk/tkImgPhoto.h"
-#include "pTk/tkImgPhoto.m"
+#include "pTk/imgInt.h"
+#include "pTk/tkVMacro.h"
 #include "tkGlue.h"
 #include "tkGlue.m"
 
@@ -20,6 +22,7 @@ extern Tk_PhotoImageFormat      imgFmtTIFF;
 
 DECLARE_VTABLES;
 TkimgphotoVtab *TkimgphotoVptr;
+ImgintVtab *ImgintVptr;
 
 MODULE = Tk::TIFF	PACKAGE = Tk::TIFF
 
@@ -28,6 +31,7 @@ PROTOTYPES: DISABLE
 BOOT:
  {
   IMPORT_VTABLES;
-  TkimgphotoVptr = (TkimgphotoVtab *) SvIV(FindTkVarName("TkimgphotoVtab",1));
+  TkimgphotoVptr = (TkimgphotoVtab *) SvIV(FindTkVarName("TkimgphotoVtab",5));
+  ImgintVptr = (ImgintVtab*) SvIV(FindTkVarName("ImgintVtab",5));
   Tk_CreatePhotoImageFormat(&imgFmtTIFF);
  }
