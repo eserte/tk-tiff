@@ -1,10 +1,10 @@
 README
 ------
 
-This is an extension for Tk800.* which supplies TIFF format loader for
-Photo image type. The TIFF code is stolen from
-.../pTk/mTk/additions/imgTIFF.c from the perl/Tk distribution. Look at
-Tk-TIFF-0.01 for a Tk40*.* version.
+This is an extension for Tk800.014 which supplies TIFF format loader
+for Photo image type. The TIFF code is stolen from imgTIFF.c from the
+img1.2b2 distribution by Jan Nijtmans. Use Tk-TIFF-0.01 for a Tk40*.*
+version.
 
 Installation:
 
@@ -19,7 +19,12 @@ library names. Then build the extension by typing:
 	make test
 	make install
 
-The module is only tested with the following configurations:
+The module is only tested with the following configuration:
+
+* FreeBSD-2.2.8, perl 5.005_02, Tk 800.014, tiff 3.4, jpeg 6b
+
+The previous version (0.02), and maybe this version too, worked with
+following configurations:
 
 * FreeBSD-2.2.7, perl 5.005_02, Tk 800.012, tiff 3.4, jpeg 6a
 * FreeBSD-2.2.1, perl 5.004_04, Tk 800.005, tiff 3.4, jpeg 6a
