@@ -1,6 +1,7 @@
 # -*- perl -*-
 use Tk::MMutil;
 use Tk::Config;
+use Tk;
 use Config;
 
 #####################################################################
@@ -28,6 +29,10 @@ if ($Config{"byteorder"} eq '4321' ||
 	 "Please report to $Author!\n";
 }
 
+if ($Tk::VERSION <= 800.015) { # XXX not sure about the right version
+    $adddef .= " -DUSE_IMGSEEK";
+}
+
 my @libs;
 my @inc;
 # check for tiff34
@@ -38,6 +43,7 @@ if ($tiff34) {
     push @inc,  qw(-I/usr/local/include);
     push @libs, qw(-L/usr/local/lib -ltiff -ljpeg);
 }
+push @libs, "-lz";
 
 # include Photo.so
 my $photo_so = "";
