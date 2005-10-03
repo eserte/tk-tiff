@@ -36,5 +36,8 @@ also work on Sun Sparcs and other machines.
 For AIX, I got reports that you have to manually add -lm and -lgcc to
 the @libs variable in Makefile.PL.
 
+Since version 0.10, also 32-bit Float-TIFFs are supported, but only
+with Tk804.xxx and newer.
+
 Slaven Rezic <slaven@rezic.de>
 
