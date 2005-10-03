@@ -1072,7 +1072,11 @@ static int ParseWriteFormat(interp, format, comp, mode)
     int *comp;
     char **mode;
 {
-    static char *tiffWriteOptions[] = {"-compression", "-byteorder"};
+    static
+#if !(TK_MAJOR_VERSION == 8 && TK_MINOR_VERSION == 0)
+           CONST
+#endif
+                 char *tiffWriteOptions[] = {"-compression", "-byteorder"};
     int objc, length, c, i, index;
     Tcl_Obj **objv;
     char *compression, *byteorder;
