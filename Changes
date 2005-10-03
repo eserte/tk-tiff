@@ -1,5 +1,10 @@
 Revision history for Perl extension Tk::TIFF.
 
+0.10
+	- added ability to read 32-bit float tiffs with 1 sample/pixel
+	  (thanks to Richard Balint)
+	- some warning fixes
+
 0.09
 	- compatibility fix for Tk 804.025
 
