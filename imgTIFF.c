@@ -24,6 +24,7 @@
 #include "pTk/tk.h"
 #include "pTk/imgInt.h"
 #include "pTk/tkVMacro.h"
+#include <float.h>
 
 extern int unlink _ANSI_ARGS_((CONST char *));
 
@@ -54,6 +55,13 @@ extern int unlink _ANSI_ARGS_((CONST char *));
 /*
  * Prototypes for local procedures defined in this file:
  */
+
+/*
+ * Flag for Float TIFF files.  Do we simply scale to byte,
+ *   or do we also equalize its histogram?
+ */
+int hist_equal = 0;
+
 
 /*
   The extra Tcl_Interp * arg was added in different
@@ -135,6 +143,7 @@ static struct TiffFunctions {
     void (* NoPostDecode) _ANSI_ARGS_((TIFF *, VOID*, tsize_t));
     tsize_t (* TileRowSize) _ANSI_ARGS_((TIFF *));
     tsize_t (* ScanlineSize) _ANSI_ARGS_((TIFF *));
+    int (* ReadScanline) _ANSI_ARGS_ ((TIFF *, tdata_t, uint32, tsample_t));
     void (* setByteArray) _ANSI_ARGS_((VOID **, VOID*, long));
     int (* VSetField) _ANSI_ARGS_((TIFF *, ttag_t, va_list));
     void (* SwabArrayOfShort) _ANSI_ARGS_((uint16*, unsigned long));
@@ -168,6 +177,7 @@ static struct TiffFunctions {
   /* _TIFFNoPostDecode, */ 0,
   TIFFTileRowSize,
   TIFFScanlineSize,
+  TIFFReadScanline,
   /* _TIFFsetByteArray, */ 0,
   TIFFVSetField,
   TIFFSwabArrayOfShort
@@ -203,6 +213,7 @@ int ImgTIFFFlushData1 _ANSI_ARGS_((TIFF *tif));
 void ImgTIFFNoPostDecode _ANSI_ARGS_((TIFF *, VOID *, tsize_t));
 tsize_t ImgTIFFTileRowSize _ANSI_ARGS_((TIFF *));
 tsize_t ImgTIFFScanlineSize _ANSI_ARGS_((TIFF *));
+int ImgTIFFReadScanline _ANSI_ARGS_ ((TIFF *, tdata_t, uint32, uint32));
 void ImgTIFFsetByteArray _ANSI_ARGS_((VOID **, VOID*, long));
 int ImgTIFFSetField _ANSI_ARGS_(TCL_VARARGS(TIFF *, tif));
 tsize_t ImgTIFFTileSize _ANSI_ARGS_((TIFF*));
@@ -250,7 +261,7 @@ ImgTIFFmemcpy(a,b,c)
      CONST tdata_t b;
      tsize_t c;
 {
-    tiff.memcpy(a,b,c);
+    tiff.memcpy(a, b, c);
 }
 
 void
@@ -310,6 +321,16 @@ ImgTIFFScanlineSize(tif)
     TIFF *tif;
 {
     return tiff.ScanlineSize(tif);
+}
+
+int 
+ImgTIFFReadScanline (tif, scanline, row, sample)
+    TIFF *tif;
+    tdata_t scanline;
+    uint32 row;
+    uint32 sample;
+{
+    return tiff.ReadScanline(tif, scanline, row, sample);
 }
 
 void
@@ -887,9 +908,42 @@ static int CommonReadTIFF(interp, tif, format, imageHandle,
 {
     myblock bl;
     unsigned char *pixelPtr = block.pixelPtr;
+    int result;
+
+    double min = DBL_MAX;
+    double max = 0;
+    double scale_max;
+    
+    uint32 npixels;
     uint32 w, h;
-    size_t npixels;
-    uint32 *raster;
+    uint32 row, col;
+    uint32 i;
+    uint32 imgrow;    /* The image's row number (mostly for upside down images) */
+    uint32 histtot;   /* The cumulative total of the histogram */
+
+    uint16 bps;       /* Bits Per Sample */
+    uint16 datatype;
+    uint16 orientation;
+
+    uint8 histpos;
+    uint8 val;
+
+    float *fscanline;
+    float *fraster;
+    uint32 *hist;     /* 256 slot histogram */
+    uint32 *raster;   /* Raster image */
+    uint32 *praster;  /* Extra pointer to specific points in raster */
+    
+    uint8 *r;         /* r, g, b, and a represent byte pointers inside */
+    uint8 *g;         /* 32bit ints in raster */
+    uint8 *b;
+    uint8 *a;
+
+    tiff.GetField (tif, TIFFTAG_IMAGEWIDTH, &w);
+    tiff.GetField (tif, TIFFTAG_IMAGELENGTH, &h);
+    tiff.GetField (tif, TIFFTAG_BITSPERSAMPLE, &bps);
+    tiff.GetField (tif, TIFFTAG_SAMPLEFORMAT, &datatype);
+    tiff.GetField (tif, TIFFTAG_ORIENTATION, &orientation);
 
 #ifdef WORDS_BIGENDIAN
     block.offset[0] = 3;
@@ -903,10 +957,8 @@ static int CommonReadTIFF(interp, tif, format, imageHandle,
     block.offset[3] = 3;
 #endif
     block.pixelSize = sizeof (uint32);
-
-    tiff.GetField(tif, TIFFTAG_IMAGEWIDTH, &w);
-    tiff.GetField(tif, TIFFTAG_IMAGELENGTH, &h);
     npixels = w * h;
+
     if (tiff.malloc == NULL) {
 	raster = (uint32 *) ckalloc(npixels * sizeof (uint32));
     } else {
@@ -917,11 +969,110 @@ static int CommonReadTIFF(interp, tif, format, imageHandle,
     block.pitch = - (block.pixelSize * (int) w);
     block.pixelPtr = ((unsigned char *) raster) + ((1-h) * block.pitch);
     if (raster == NULL) {
-	printf("cannot malloc\n");
 	return TCL_ERROR;
     }
 
-    if (!tiff.ReadRGBAImage(tif, w, h, raster, 0) || errorMessage) {
+    result = 0;
+    if (datatype == SAMPLEFORMAT_IEEEFP) {
+        if (bps != 32) {
+            if (tiff.free == NULL) {
+                ckfree ((char *) raster);
+            } else {
+                tiff.free ((char *) raster);
+            }
+            Tcl_AppendResult (interp, "Only 32-bit Float-TIFFs supported", (char *) NULL);
+            return TCL_ERROR;
+        }
+        
+        hist = (uint32 *)malloc(256 * sizeof(uint32));
+
+        if (tiff.malloc == NULL) {
+            fscanline = (float *) ckalloc (tiff.ScanlineSize (tif));
+            fraster = (float *) ckalloc (npixels * sizeof (float));
+        } else {
+            fscanline = (float *) tiff.malloc (tiff.ScanlineSize (tif));
+            fraster = (float *) tiff.malloc (npixels * sizeof (float));
+        }
+
+        for (row = 0; row < h; row++) {
+            imgrow = row;
+            if (orientation == ORIENTATION_TOPLEFT) {
+                imgrow = h - row - 1;
+            }
+            tiff.ReadScanline (tif, fscanline, row, 0);
+            for (col = 0; col < w; col++) {
+                fraster[imgrow * w + col] = fscanline[col];
+                if (fscanline[col] > max)
+                    max = fscanline[col];
+                if (fscanline[col] < min)
+                    min = fscanline[col];
+            }
+        }
+
+        scale_max = 256.0 / max;
+        if (hist_equal) {
+            for (i = 0; i < 256; i++) {
+                hist[i] = 0;
+            }
+            for (i = 0; i < npixels; i++) {
+                val = (uint8) (scale_max * (fraster[i] + min));
+                hist[val]++;
+            }
+            hist[0] = 0;
+
+            /* Cumulative histogram */
+            histtot = 0;
+            for (i = 0; i < 256; i++) {
+                histtot += hist[i];
+                hist[i] = histtot;
+            }
+            for (i = 0; i < 256; i++) {
+                hist[i] = (uint8) ((hist[i] / (float) histtot) * 256.0);
+            }
+            hist[255] = 255;
+        }
+
+        /* Apply equalized histogram and stuff into RGBA format */
+        praster = raster;
+        for (i = 0; i < npixels; i++, praster++) {
+            if (hist_equal) {
+                histpos = (fraster[i] < 256) ? fraster[i] : 255;
+                val = hist[histpos];
+            } else {
+                val = (scale_max * (fraster[i] + min));
+            }
+
+#ifdef WORDS_BIGENDIAN
+            a = (uint8 *) praster;
+            b = (uint8 *) praster + 1;
+            g = (uint8 *) praster + 2;
+            r = (uint8 *) praster + 3;
+#else
+            r = (uint8 *) praster;
+            g = (uint8 *) praster + 1;
+            b = (uint8 *) praster + 2;
+            a = (uint8 *) praster + 3;
+#endif
+            *r = *g = *b = val;
+            *a = 0;
+        }
+
+        if (tiff.free == NULL) {
+            ckfree ((void *) fscanline);
+            ckfree ((void *) fraster);
+        } else {
+            tiff.free (fraster);
+            tiff.free (fscanline);
+        }
+        free(hist);
+
+        result = 1;
+
+    } else {
+        result = tiff.ReadRGBAImage (tif, w, h, raster, 0);
+    }
+
+    if (!result || errorMessage) {
 	if (tiff.free == NULL) {
 	    ckfree((char *)raster);
 	} else {
