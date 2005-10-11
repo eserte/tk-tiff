@@ -2,7 +2,7 @@
 # -*- perl -*-
 
 #
-# $Id: test.pl,v 1.8 2005/10/11 20:21:12 eserte Exp $
+# $Id: test.pl,v 1.9 2005/10/11 20:25:32 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1998,2005 Slaven Rezic. All rights reserved.
@@ -105,7 +105,7 @@ if (!$tmp || !-d $tmp || !-w $tmp) {
 	$t->configure(-image => $_);
 	$t_label->configure(-text => $tifflabels[$p_i]);
 	$top->update;
-	$top->tk_sleep(0.5);
+	$top->tk_sleep(0.75);
 	$p_i++;
     }
 }
