@@ -60,7 +60,7 @@ extern int unlink _ANSI_ARGS_((CONST char *));
  * Flag for Float TIFF files.  Do we simply scale to byte,
  *   or do we also equalize its histogram?
  */
-int hist_equal = 0;
+int contrast_enhance = 0;
 
 
 /*
@@ -261,7 +261,7 @@ ImgTIFFmemcpy(a,b,c)
      CONST tdata_t b;
      tsize_t c;
 {
-    tiff.memcpy(a, b, c);
+    (tiff.memcpy)(a, b, c);
 }
 
 void
@@ -895,7 +895,7 @@ typedef struct myblock {
 } myblock;
 
 #define block bl.ck
-
+#define HISTSIZE 1024
 static int CommonReadTIFF(interp, tif, format, imageHandle,
 	destX, destY, width, height, srcX, srcY)
     Tcl_Interp *interp;
@@ -910,27 +910,31 @@ static int CommonReadTIFF(interp, tif, format, imageHandle,
     unsigned char *pixelPtr = block.pixelPtr;
     int result;
 
-    double min = DBL_MAX;
-    double max = 0;
-    double scale_max;
+    double imgmin = DBL_MAX;
+    double imgmax = DBL_MIN;
+    double newmin = DBL_MAX;
+    double newmax = DBL_MIN;
+    double factor = 0.0;
     
     uint32 npixels;
     uint32 w, h;
     uint32 row, col;
     uint32 i;
     uint32 imgrow;    /* The image's row number (mostly for upside down images) */
+    uint32 histmin = -1;
+    uint32 histmax = -1;
     uint32 histtot;   /* The cumulative total of the histogram */
 
     uint16 bps;       /* Bits Per Sample */
     uint16 datatype;
     uint16 orientation;
+    uint16 val;
 
     uint8 histpos;
-    uint8 val;
 
     float *fscanline;
     float *fraster;
-    uint32 *hist;     /* 256 slot histogram */
+    uint32 *hist;     /* HISTSIZE slot histogram */
     uint32 *raster;   /* Raster image */
     uint32 *praster;  /* Extra pointer to specific points in raster */
     
@@ -960,16 +964,16 @@ static int CommonReadTIFF(interp, tif, format, imageHandle,
     npixels = w * h;
 
     if (tiff.malloc == NULL) {
-	raster = (uint32 *) ckalloc(npixels * sizeof (uint32));
+        raster = (uint32 *) ckalloc(npixels * sizeof (uint32));
     } else {
-	raster = (uint32 *) tiff.malloc(npixels * sizeof (uint32));
+        raster = (uint32 *) tiff.malloc(npixels * sizeof (uint32));
     }
     block.width = w;
     block.height = h;
     block.pitch = - (block.pixelSize * (int) w);
     block.pixelPtr = ((unsigned char *) raster) + ((1-h) * block.pitch);
     if (raster == NULL) {
-	return TCL_ERROR;
+        return TCL_ERROR;
     }
 
     result = 0;
@@ -984,14 +988,19 @@ static int CommonReadTIFF(interp, tif, format, imageHandle,
             return TCL_ERROR;
         }
         
-        hist = (uint32 *)malloc(256 * sizeof(uint32));
+        if (tiff.malloc == NULL) {
+            hist = (uint32 *)ckalloc(HISTSIZE * sizeof(uint32));
+        } else {
+            hist = (uint32 *)tiff.malloc(HISTSIZE * sizeof(uint32));        
+        }
+        memset(hist, 0, HISTSIZE * sizeof(uint32));
 
         if (tiff.malloc == NULL) {
-            fscanline = (float *) ckalloc (tiff.ScanlineSize (tif));
-            fraster = (float *) ckalloc (npixels * sizeof (float));
+            fscanline = (float *) ckalloc (w * sizeof(float));
+            fraster   = (float *) ckalloc (npixels * sizeof (float));
         } else {
-            fscanline = (float *) tiff.malloc (tiff.ScanlineSize (tif));
-            fraster = (float *) tiff.malloc (npixels * sizeof (float));
+            fscanline = (float *) tiff.malloc (w * sizeof(float));
+            fraster   = (float *) tiff.malloc (npixels * sizeof (float));
         }
 
         for (row = 0; row < h; row++) {
@@ -1002,57 +1011,65 @@ static int CommonReadTIFF(interp, tif, format, imageHandle,
             tiff.ReadScanline (tif, fscanline, row, 0);
             for (col = 0; col < w; col++) {
                 fraster[imgrow * w + col] = fscanline[col];
-                if (fscanline[col] > max)
-                    max = fscanline[col];
-                if (fscanline[col] < min)
-                    min = fscanline[col];
+                if (fscanline[col] > imgmax)
+                    imgmax = fscanline[col];
+                if (fscanline[col] < imgmin)
+                    imgmin = fscanline[col];
             }
         }
-
-        scale_max = 256.0 / max;
-        if (hist_equal) {
-            for (i = 0; i < 256; i++) {
-                hist[i] = 0;
-            }
+        if (contrast_enhance) {
+            /*  val = (((fraster[i]-imgmin)/(imgmax-imgmin))*(HISTSIZE-1)); */
+            factor = (HISTSIZE-1) / (imgmax - imgmin);
             for (i = 0; i < npixels; i++) {
-                val = (uint8) (scale_max * (fraster[i] + min));
+                val = (fraster[i] - imgmin) * factor;
                 hist[val]++;
             }
-            hist[0] = 0;
 
             /* Cumulative histogram */
             histtot = 0;
-            for (i = 0; i < 256; i++) {
+            for (i = 0; i < HISTSIZE; i++) {
                 histtot += hist[i];
-                hist[i] = histtot;
+                if ((histmin == -1) && (histtot > (npixels*0.005))) {
+                    histmin = i;
+                }
+                if (histtot > (npixels*0.995)) {
+                    histmax = i;
+                    break;
+                }
             }
-            for (i = 0; i < 256; i++) {
-                hist[i] = (uint8) ((hist[i] / (float) histtot) * 256.0);
-            }
-            hist[255] = 255;
+            
+            /* Always floor the newmin, and ceil the newmax */
+            newmin = ((imgmax*histmin)     - (HISTSIZE*imgmin))/HISTSIZE;
+            newmax = ((imgmax*(histmax+1)) - (HISTSIZE*imgmin))/HISTSIZE;
+            if (newmin < 0) newmin = 0;
+
+            imgmin = newmin;
+            imgmax = newmax;
         }
 
-        /* Apply equalized histogram and stuff into RGBA format */
         praster = raster;
-        for (i = 0; i < npixels; i++, praster++) {
-            if (hist_equal) {
-                histpos = (fraster[i] < 256) ? fraster[i] : 255;
-                val = hist[histpos];
-            } else {
-                val = (scale_max * (fraster[i] + min));
-            }
 
-#ifdef WORDS_BIGENDIAN
-            a = (uint8 *) praster;
-            b = (uint8 *) praster + 1;
-            g = (uint8 *) praster + 2;
-            r = (uint8 *) praster + 3;
-#else
-            r = (uint8 *) praster;
-            g = (uint8 *) praster + 1;
-            b = (uint8 *) praster + 2;
-            a = (uint8 *) praster + 3;
-#endif
+        /* Apply equalized histogram and stuff into RGBA format */
+        /*   val = (((fraster[i]-imgmin)/(imgmax-imgmin))*255); */
+        factor = 255 / (imgmax - imgmin);
+        for (i = 0; i < npixels; i++, praster++) {
+            if (contrast_enhance) {
+                if      (fraster[i] < imgmin) fraster[i] = imgmin;
+                else if (fraster[i] > imgmax) fraster[i] = imgmax;
+            }
+            val = (fraster[i] - imgmin) * factor;
+
+            #ifdef WORDS_BIGENDIAN
+                a = (uint8 *) praster;
+                b = (uint8 *) praster + 1;
+                g = (uint8 *) praster + 2;
+                r = (uint8 *) praster + 3;
+            #else
+                r = (uint8 *) praster;
+                g = (uint8 *) praster + 1;
+                b = (uint8 *) praster + 2;
+                a = (uint8 *) praster + 3;
+            #endif
             *r = *g = *b = val;
             *a = 0;
         }
@@ -1060,12 +1077,12 @@ static int CommonReadTIFF(interp, tif, format, imageHandle,
         if (tiff.free == NULL) {
             ckfree ((void *) fscanline);
             ckfree ((void *) fraster);
+            ckfree ((void *) hist);
         } else {
             tiff.free (fraster);
             tiff.free (fscanline);
+            tiff.free (hist);
         }
-        free(hist);
-
         result = 1;
 
     } else {
@@ -1073,29 +1090,28 @@ static int CommonReadTIFF(interp, tif, format, imageHandle,
     }
 
     if (!result || errorMessage) {
-	if (tiff.free == NULL) {
-	    ckfree((char *)raster);
-	} else {
-	    tiff.free((char *)raster);
-	}
-	if (errorMessage) {
-	    Tcl_AppendResult(interp, errorMessage, (char *) NULL);
-	    ckfree(errorMessage);
-	    errorMessage = NULL;
-	}
-	return TCL_ERROR;
+        if (tiff.free == NULL) {
+            ckfree((char *)raster);
+        } else {
+            tiff.free((char *)raster);
+        }
+        if (errorMessage) {
+            Tcl_AppendResult(interp, errorMessage, (char *) NULL);
+            ckfree(errorMessage);
+            errorMessage = NULL;
+        }
+        return TCL_ERROR;
     }
 
-    pixelPtr = block.pixelPtr += srcY * block.pitch
-	    + srcX * block.pixelSize;
+    pixelPtr = block.pixelPtr += srcY * block.pitch + srcX * block.pixelSize;
     block.offset[3] = block.offset[0]; /* don't use transparency */
     ImgPhotoPutBlock(imageHandle, &block, destX,
-			destY, width, height);
+    		destY, width, height);
 
     if (tiff.free == NULL) {
-	ckfree((char *)raster);
+        ckfree((char *)raster);
     } else {
-	tiff.free((char *)raster);
+        tiff.free((char *)raster);
     }
     tiff.Close(tif);
     return TCL_OK;
