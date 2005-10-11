@@ -2,7 +2,7 @@
 # -*- perl -*-
 
 #
-# $Id: test.pl,v 1.7 2005/10/03 21:06:26 eserte Exp $
+# $Id: test.pl,v 1.8 2005/10/11 20:21:12 eserte Exp $
 # Author: Slaven Rezic
 #
 # Copyright (C) 1998,2005 Slaven Rezic. All rights reserved.
@@ -25,7 +25,7 @@ use File::Compare;
 my $ok = 1;
 print "ok " . $ok++ . "\n";
 
-my $top = new MainWindow(-width => 800, -height => 600);
+my $top = new MainWindow(-width => 400, -height => 480);
 
 my @tifflist = qw(test-none.tif test-2channel.tif test-lzw.tif
 		  test-packbits.tif test-float.tif);
@@ -67,16 +67,16 @@ foreach (@tifflist) {
 }
 
 {
-    Tk::TIFF::setHistEqual(1);
+    Tk::TIFF::setContrastEnhance(1);
     my $p;
     eval { $p = $top->Photo(-file => "test-float.tif") };
     if ($p && !$@) {
 	push @p, $p;
-	push @tifflabels, "test-float.tif (histEqual=1)";
-	print "ok " . $ok++ . " # Histogram-Equalized Float TIFF\n";
+	push @tifflabels, "test-float.tif (contrastEnhance=1)";
+	print "ok " . $ok++ . " # Contrast-Enhanced Float TIFF\n";
     } else {
 	warn $@ if $@;
-	print "not ok " . $ok++ . " # Histogram-Equalized Float TIFF\n";
+	print "not ok " . $ok++ . " # Contrast-Enhanced Float TIFF\n";
     }
 }
 
