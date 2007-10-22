@@ -1,5 +1,8 @@
 Revision history for Perl extension Tk::TIFF.
 
+0.11
+	- added configure_requires to META.yml
+
 0.10
 	- added ability to read 32-bit float tiffs with 1 sample/pixel
 	  (thanks to Richard Balint)
