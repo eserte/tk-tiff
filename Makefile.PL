@@ -68,6 +68,12 @@ Tk::MMutil::TkExtMakefile
    'PREREQ_PM'     => {'Tk' => 800.014 },
    'AUTHOR'        => $author,
    'ABSTRACT'      => 'Tk::Photo loader for TIFF files',
+   'EXTRA_META'    => <<'EOF',
+configure_requires:
+  Tk::MMutil: 0
+  Tk::Config: 0
+  Tk: 0
+EOF
   );
 
 sub MY::postamble {
