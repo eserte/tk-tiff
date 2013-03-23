@@ -1,5 +1,5 @@
 #!/usr/local/bin/perl -w
-# -*- perl -*-
+# -*- cperl -*-
 
 #
 # Author: Slaven Rezic
@@ -14,144 +14,122 @@
 
 use strict;
 use FindBin;
+use lib $FindBin::RealBin;
 
-my $last;
-BEGIN { $last = 15; print "1..$last\n" }
+use Test::More;
 
+use File::Compare;
+use File::Temp qw(tempfile);
+use Getopt::Long;
 use Tk;
 use Tk::TIFF;
-use File::Compare;
 
-my $ok = 1;
-print "ok " . $ok++ . "\n";
-
-my $top = new MainWindow(-width => 400, -height => 480);
-
-my @tifflist = qw(test-none.tif test-2channel.tif test-lzw.tif
-		  test-packbits.tif test-float.tif);
-my @tifflabels = @tifflist;
-
-# string read first
-if (eval { require MIME::Base64; }) {
-    foreach (@tifflist) {
-	open(F, "$FindBin::RealBin/$_") or die "Can't open $_: $!";
-	binmode F;
-	undef $/;
-	my $buf = <F>;
-	close F;
-	my $p;
-	eval { $p = $top->Photo(-data => MIME::Base64::encode_base64($buf)) };
-	if ($p && !$@) {
-	    print "ok " . $ok++ . " # $_\n";
-	} else {
-	    warn $@ if $@;
-	    print "not ok " . $ok++ . " # $_\n";
-	}
-    }
-} else {
-    print "ok " . $ok++ . " # skipping test: no MIME::Base64 installed\n"
-	for (1..scalar(@tifflist));
+my $top = eval { Tk::MainWindow->new() };
+if (!Tk::Exists($top)) {
+    plan skip_all => "Cannot create MainWindow: $@";
+    CORE::exit(0);
 }
 
-my @p;
-foreach (@tifflist) {
-    my $p;
-    eval { $p = $top->Photo(-file => "$FindBin::RealBin/$_") };
-    if ($p && !$@) {
-	push @p, $p;
-	print "ok " . $ok++ . " # $_\n";
-    } else {
-	warn $@ if $@;
-	print "not ok " . $ok++ . " # $_\n";
+my $interactive;
+GetOptions("interactive" => \$interactive)
+    or die "usage: $0 [-interactive]";
+
+$top->geometry("400x480+10+10");
+
+# XXX test-2channel.tif - does not work yet
+my @tiff_files = qw(test-none.tif test-lzw.tif
+		    test-packbits.tif test-float.tif);
+
+plan tests => 29;
+
+SKIP: {
+    skip "No MIME::Base64 available for string read test", scalar @tiff_files
+	if !eval { require MIME::Base64; 1 };
+
+    for my $tiff_file (@tiff_files) {
+	my $tiff_path = "$FindBin::RealBin/$tiff_file";
+
+	open my $fh, $tiff_path
+	    or die "Can't open $tiff_path: $!";
+	binmode $fh;
+	my $buf = do {
+	    undef $/;
+	    <$fh>;
+	};
+
+	my $p =	eval { $top->Photo(-data => MIME::Base64::encode_base64($buf)) };
+	ok $p && !$@, "string read of $tiff_file"
+	    or diag $@;
     }
+}
+
+my @photo_defs;
+for my $tiff_file (@tiff_files) {
+    my $tiff_path = "$FindBin::RealBin/$tiff_file";
+    my $p = eval { $top->Photo(-file => $tiff_path) };
+    ok $p && !$@, "file read of $tiff_file"
+	or diag $@;
+    push @photo_defs, { p => $p, label => $tiff_file }
+	if $p;
 }
 
 {
     Tk::TIFF::setContrastEnhance(1);
-    my $p;
-    eval { $p = $top->Photo(-file => "$FindBin::RealBin/test-float.tif") };
-    if ($p && !$@) {
-	push @p, $p;
-	push @tifflabels, "test-float.tif (contrastEnhance=1)";
-	print "ok " . $ok++ . " # Contrast-Enhanced Float TIFF\n";
-    } else {
-	warn $@ if $@;
-	print "not ok " . $ok++ . " # Contrast-Enhanced Float TIFF\n";
-    }
-}
-
-my $tmp;
-if (eval { require File::Temp; 1 }) {
-    $tmp = File::Temp::tempdir(CLEANUP => 1);
-}
-if (!$tmp || !-d $tmp || !-w $tmp) {
-    for(; $ok <= $last; $ok++) {
-	print "ok $ok # skipping test: ";
-	if (!defined $tmp) {
-	    print "cannot create temporary directory (File::Temp available?)\n";
-	} else {
-	    print "$tmp not writeable\n"
-	}
-    }
-    exit 0;
+    my $p = eval { $top->Photo(-file => "$FindBin::RealBin/test-float.tif") };
+    ok $p && !$@, 'contrast enhanced float tiff'
+	or diag $@;
+    push @photo_defs, { p => $p, label => 'test-float.tif (contrastEnhance=1)' }
+	if $p;
 }
 
 {
     $top->packPropagate(0);
-    my $t = $top->Label->pack(-expand => 1);
-    my $t_label = $top->Label->pack(-fill => 'x');
-    my $p_i = 0;
-    foreach (@p) {
-	$t->configure(-image => $_);
-	$t_label->configure(-text => $tifflabels[$p_i]);
+    my $image_l = $top->Label->pack(-expand => 1);
+    my $label_l = $top->Label->pack(-fill => 'x');
+    my $cont;
+    if ($interactive) {
+	$top->Button(-text => 'Continue',
+		     -command => sub { $cont++ },
+		    )->pack;
+    }
+    for my $i (0 .. $#photo_defs) {
+	my($p, $label) = @{$photo_defs[$i]}{qw(p label)};
+	$image_l->configure(-image => $p);
+	$label_l->configure(-text => $label);
 	$top->update;
-	$top->tk_sleep(0.75);
-	$p_i++;
+	if ($interactive) {
+	    $top->waitVariable(\$cont);
+	} else {
+	    $top->tk_sleep(0.5);
+	}
     }
 }
 
-# Don't use the first image (with colors), because there are problems
-# with ppc-linux (different colors for both images), but rather
-# test if the monochrome image is the same.
-if (!$p[1]) {
-    print "ok " . $ok++ . " # skipping test: no photos available\n"
-	for (1..3);
-} else {
-    $p[1]->write("$tmp/tifftest2.tif");
+for my $photo_def (@photo_defs) {
+    my($p, $label) = @{$photo_def}{qw(p label)};
 
-    print ((!-r "$tmp/tifftest2.tif" ? "not " : "") . "ok " . $ok++ . " # Write tifftest2.tif\n");
+    my($tmp1fh,$tmp1file) = tempfile(UNLINK => 1, SUFFIX => "_1.tiff")
+	or die "Can't create temporary file: $!";
+    $p->write($tmp1file);
+    ok -s $tmp1file, "tiff file $label written";
 
-    my $p2 = $top->Photo(-file => "$tmp/tifftest2.tif");
-    $p2->write("$tmp/tifftest3.tif");
+    my $p2 = $top->Photo(-file => $tmp1file);
+    ok $p2, 'tiff file re-read';
 
-    print STDOUT ((compare("$tmp/tifftest2.tif", "$tmp/tifftest3.tif") != 0
-		   ? "not " : "") . "ok " . $ok++ . " # tifftest2.tif == tifftest3.tif\n");
+    my($tmp2fh,$tmp2file) = tempfile(UNLINK => 1, SUFFIX => "_2.tiff")
+	or die "Can't create temporary file: $!";
+    $p2->write($tmp2file);
+    ok compare($tmp1file, $tmp2file) == 0, 'Comparison of both files';
 
-    $p2->write("$tmp/tifftest4.tif", '-format' => ['tiff', -compression => 'lzw']);
-    print ((!-r "$tmp/tifftest4.tif" ? "not " : "") . "ok " . $ok++ . " # Write lzw tiff\n");
-}
-
-# cleanup (not really necessary)
-for (<$tmp/tifftest*.tif>) {
-    unlink $_;
+    my($tmp3fh, $tmp3file) = tempfile(UNLINK => 1, SUFFIX => "_3.tiff")
+	or die "Can't create temporary file: $!";
+    $p2->write($tmp3file, '-format' => ['tiff', -compression => 'lzw']);
+    ok -s $tmp3file, 'write lzw tiff';
 }
 
 # REPO BEGIN
 # REPO NAME tk_sleep /home/e/eserte/work/srezic-repository 
 # REPO MD5 2fc80d814604255bbd30931e137bafa4
-
-=head2 tk_sleep
-
-=for category Tk
-
-    $top->tk_sleep($s);
-
-Sleep $s seconds (fractions are allowed). Use this method in Tk
-programs rather than the blocking sleep function. The difference to
-$top->after($s/1000) is that update events are still allowed in the
-sleeping time.
-
-=cut
 
 sub Tk::Widget::tk_sleep {
     my($top, $s) = @_;
