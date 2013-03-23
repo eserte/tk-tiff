@@ -2,18 +2,18 @@
 # -*- perl -*-
 
 #
-# $Id: test.pl,v 1.9 2005/10/11 20:25:32 eserte Exp $
 # Author: Slaven Rezic
 #
-# Copyright (C) 1998,2005 Slaven Rezic. All rights reserved.
+# Copyright (C) 1998,2005,2013 Slaven Rezic. All rights reserved.
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 #
-# Mail: eserte@cs.tu-berlin.de
-# WWW:  http://user.cs.tu-berlin.de/~eserte/
+# Mail: srezic@cpan.org
+# WWW:  http://www.rezic.de
 #
 
 use strict;
+use FindBin;
 
 my $last;
 BEGIN { $last = 15; print "1..$last\n" }
@@ -34,7 +34,7 @@ my @tifflabels = @tifflist;
 # string read first
 if (eval { require MIME::Base64; }) {
     foreach (@tifflist) {
-	open(F, $_) or die "Can't open $_: $!";
+	open(F, "$FindBin::RealBin/$_") or die "Can't open $_: $!";
 	binmode F;
 	undef $/;
 	my $buf = <F>;
@@ -56,7 +56,7 @@ if (eval { require MIME::Base64; }) {
 my @p;
 foreach (@tifflist) {
     my $p;
-    eval { $p = $top->Photo(-file => $_) };
+    eval { $p = $top->Photo(-file => "$FindBin::RealBin/$_") };
     if ($p && !$@) {
 	push @p, $p;
 	print "ok " . $ok++ . " # $_\n";
@@ -69,7 +69,7 @@ foreach (@tifflist) {
 {
     Tk::TIFF::setContrastEnhance(1);
     my $p;
-    eval { $p = $top->Photo(-file => "test-float.tif") };
+    eval { $p = $top->Photo(-file => "$FindBin::RealBin/test-float.tif") };
     if ($p && !$@) {
 	push @p, $p;
 	push @tifflabels, "test-float.tif (contrastEnhance=1)";
