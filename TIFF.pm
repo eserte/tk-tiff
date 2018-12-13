@@ -19,5 +19,11 @@ bootstrap Tk::TIFF $Tk::VERSION;
 #   $contrast_enhance = Tk::TIFF::setContrastEnhance(0|1);
 #
 
+=head1 NAME
+
+Tk::TIFF - Tk::Photo loader for TIFF files.
+
+=cut
+
 1;
 __END__
